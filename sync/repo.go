@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 type Git struct {
@@ -17,10 +18,52 @@ func NewGit() *Git {
 	return &Git{}
 }
 
+// SetRepo sets this instance's repo
 func (g *Git) SetRepo(repo string) (*Git, error) {
 	g.repo = repo
 	err := g.checkRepo()
 	return g, err
+}
+
+// Sync syncs the current repo by running pull then push
+func (g *Git) Sync() (string, error) {
+	stage, stageErr := g.Stage()
+	commit, commitErr := g.Commit()
+	pull, pullErr := g.Pull()
+	push, pushErr := g.Push()
+	result := fmt.Sprintf(
+		"Stage Result:\n%s\nCommit Result:\n%s\nPull Result:\n%s\nPush Result:\n%s\n",
+		stage,
+		commit,
+		push,
+		pull,
+	)
+	return result, ParseErrors([]error{
+		stageErr,
+		commitErr,
+		pullErr,
+		pushErr,
+	})
+}
+
+// Stage runs git stage
+func (g *Git) Stage() (string, error) {
+	return g.action([]string{"stage", "."})
+}
+
+// Commit runs git commit
+func (g *Git) Commit() (string, error) {
+	return g.action([]string{"commit", ".", "-m", g.commitMessage("Automatic Commit by GitSync")})
+}
+
+// Commit runs git push
+func (g *Git) Push() (string, error) {
+	return g.action([]string{"push"})
+}
+
+// Commit runs git pull
+func (g *Git) Pull() (string, error) {
+	return g.action([]string{"pull"})
 }
 
 func (g *Git) action(args []string) (string, error) {
@@ -31,6 +74,11 @@ func (g *Git) action(args []string) (string, error) {
 	defer g.back()
 	result, err := exec.Command("git", args...).CombinedOutput()
 	return string(result), err
+}
+
+func (g *Git) commitMessage(message string) string {
+	timeStamp := time.Now()
+	return fmt.Sprintf("[%s]: %s [%d]", timeStamp.Format(time.RFC3339), message, timeStamp.Unix())
 }
 
 func (g *Git) back() {

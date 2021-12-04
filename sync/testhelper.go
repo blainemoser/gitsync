@@ -81,3 +81,34 @@ func makeTestDir() (string, error) {
 	}
 	return TestDir, err
 }
+
+// SyncFile syncs a file to the repo
+func SyncFile(name string) (string, error) {
+	err := makeFile(name)
+	if err != nil {
+		return "", err
+	}
+	return TestGit.Sync()
+}
+
+// RemoveFileAndSync removes the file then syncs the git repo
+func RemoveFileAndSync(name string) (string, error) {
+	err := os.Remove(TestGit.GetRepo() + "/" + name + ".txt")
+	if err != nil {
+		return "", err
+	}
+	return TestGit.Sync()
+}
+
+func makeFile(name string) error {
+	file, err := os.Create(TestGit.GetRepo() + "/" + name + ".txt")
+	if err != nil {
+		return err
+	}
+	content := []byte(TestFiles[name])
+	_, err = file.Write(content)
+	if err != nil {
+		return err
+	}
+	return nil
+}

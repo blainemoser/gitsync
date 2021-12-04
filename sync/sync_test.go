@@ -17,5 +17,17 @@ func TestNewGit(t *testing.T) {
 	if TestGit == nil {
 		t.Error("test git instance could not be set")
 	}
-	fmt.Println(TestGit.GetRepo())
+}
+
+func TestSync(t *testing.T) {
+	result, err := SyncFile("two")
+	fmt.Println(result)
+	if err != nil {
+		t.Error(err)
+	}
+	result, err = RemoveFileAndSync("two")
+	fmt.Println(result)
+	if err != nil {
+		t.Error(err)
+	}
 }
