@@ -1,4 +1,4 @@
-package sync
+package gitsync
 
 var TestFiles = map[string]string{
 	"one": `This is some test text`,

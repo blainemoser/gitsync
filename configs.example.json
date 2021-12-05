@@ -1,0 +1,6 @@
+{
+    "directories": [
+        "/path/for/linux",
+        "C:\\path\\for\\windows"
+    ]
+}

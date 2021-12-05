@@ -1,4 +1,4 @@
-package sync
+package repo
 
 import (
 	"fmt"
@@ -6,6 +6,8 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/blainemoser/gitsync/utils"
 )
 
 type Git struct {
@@ -25,7 +27,21 @@ func (g *Git) SetRepo(repo string) (*Git, error) {
 	return g, err
 }
 
-// Sync syncs the current repo by running pull then push
+// Status runs git status
+func (g *Git) Status() (string, error) {
+	return g.action([]string{"status"})
+}
+
+func (g *Git) HasChanges() (bool, error) {
+	status, err := g.Status()
+	if err != nil {
+		return false, err
+	}
+	return strings.Contains(status, "Changes not staged for commit") ||
+		strings.Contains(status, "Untracked files"), nil
+}
+
+// Sync syncs the current repo by running stage, commit, pull then finally push
 func (g *Git) Sync() (string, error) {
 	stage, stageErr := g.Stage()
 	commit, commitErr := g.Commit()
@@ -38,7 +54,7 @@ func (g *Git) Sync() (string, error) {
 		push,
 		pull,
 	)
-	return result, ParseErrors([]error{
+	return result, utils.ParseErrors([]error{
 		stageErr,
 		commitErr,
 		pullErr,

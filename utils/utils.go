@@ -1,7 +1,9 @@
-package sync
+package utils
 
 import (
 	"fmt"
+	"io/fs"
+	"os"
 	"strings"
 )
 
@@ -21,4 +23,13 @@ func ParseErrors(errors []error) error {
 		return nil
 	}
 	return fmt.Errorf(strings.Join(result, "; "))
+}
+
+func MakeDir(path string) error {
+	err := os.Mkdir(path, fs.FileMode(0777))
+	if os.IsExist(err) {
+		fmt.Printf("warning: %s\n", err.Error())
+		return nil
+	}
+	return err
 }
