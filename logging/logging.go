@@ -13,7 +13,9 @@ type Log struct {
 	fullPath   string
 }
 
-const path = "../log.log"
+const path = "../gitsync.log"
+
+var AbsPath string
 
 var levels = map[string]bool{
 	"ERROR":   true,
@@ -21,8 +23,29 @@ var levels = map[string]bool{
 	"WARNING": true,
 }
 
+func SetBaseDir(dir string) {
+	AbsPath = fmt.Sprintf("%s/gitsync.log", dir)
+}
+
+func StaticWrite(message, level string) {
+	if len(AbsPath) < 1 {
+		fmt.Println("base directory not set")
+		return
+	}
+	file, err := getLog(AbsPath)
+	if err != nil {
+		fmt.Println(err)
+	}
+	defer file.Close()
+	logged := parseMessage(message, level)
+	_, err = file.Write(logged)
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+
 func NewLog() (*Log, error) {
-	fullPath, err := filepath.Abs(path)
+	fullPath, err := getFullPath()
 	if err != nil {
 		return nil, err
 	}
@@ -33,9 +56,16 @@ func NewLog() (*Log, error) {
 	}, nil
 }
 
+func getFullPath() (string, error) {
+	if len(AbsPath) > 0 {
+		return AbsPath, nil
+	}
+	return filepath.Abs(path)
+}
+
 // Write writes a message
 func (l *Log) Write(message string, level string) error {
-	file, err := l.getLog()
+	file, err := getLog(l.fullPath)
 	if err != nil {
 		return err
 	}
@@ -44,14 +74,14 @@ func (l *Log) Write(message string, level string) error {
 	return l.writeMessage(message, level)
 }
 
-func (l *Log) getLog() (*os.File, error) {
-	file, err := os.OpenFile(l.fullPath, os.O_APPEND|os.O_WRONLY, os.ModeAppend)
+func getLog(fullPath string) (*os.File, error) {
+	file, err := os.OpenFile(fullPath, os.O_APPEND|os.O_WRONLY, os.ModeAppend)
 	if err != nil && os.IsNotExist(err) {
-		_, err = os.Create(l.fullPath)
+		_, err = os.Create(fullPath)
 		if err != nil {
 			return nil, err
 		}
-		return l.getLog()
+		return getLog(fullPath)
 	}
 	return file, err
 }
@@ -64,16 +94,16 @@ func (l *Log) cleanup() {
 	l.file = nil
 }
 
-func (l *Log) parseMessage(message, level string) {
+func parseMessage(message, level string) []byte {
 	now := time.Now().Format(time.RFC3339)
 	if levels[level] == false {
 		level = "ERROR"
 	}
-	l.lastLogged = []byte(fmt.Sprintf("[%s] %s: %s\n", now, level, message))
+	return []byte(fmt.Sprintf("[%s] %s: %s\n", now, level, message))
 }
 
 func (l *Log) writeMessage(message, level string) error {
-	l.parseMessage(message, level)
+	l.lastLogged = parseMessage(message, level)
 	_, err := l.file.Write(l.lastLogged)
 	return err
 }

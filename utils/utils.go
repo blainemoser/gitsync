@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"os/exec"
 	"strings"
 )
 
@@ -25,6 +26,7 @@ func ParseErrors(errors []error) error {
 	return fmt.Errorf(strings.Join(result, "; "))
 }
 
+// MakeDir makes a directory
 func MakeDir(path string) error {
 	err := os.Mkdir(path, fs.FileMode(0777))
 	if os.IsExist(err) {
@@ -32,4 +34,10 @@ func MakeDir(path string) error {
 		return nil
 	}
 	return err
+}
+
+// GetPWD gets the present working directory
+func GetPWD() (string, error) {
+	result, err := exec.Command("pwd").CombinedOutput()
+	return strings.ReplaceAll(string(result), "\n", ""), err
 }

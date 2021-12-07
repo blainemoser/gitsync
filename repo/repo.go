@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/blainemoser/gitsync/logging"
 	"github.com/blainemoser/gitsync/utils"
 	"github.com/fsnotify/fsnotify"
 )
@@ -158,8 +159,6 @@ func (g *Git) action(args []string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	ou, _ := exec.Command("dir").CombinedOutput()
-	fmt.Println(string(ou))
 	defer g.back()
 	result, err := exec.Command("git", args...).CombinedOutput()
 	return string(result), err
@@ -179,7 +178,7 @@ func (g *Git) back() {
 
 func (g *Git) init() error {
 	result, err := g.action([]string{"init"})
-	fmt.Println(result)
+	logging.StaticWrite(result, "INFO")
 	return err
 }
 
