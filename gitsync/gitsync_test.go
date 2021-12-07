@@ -36,14 +36,40 @@ func TestStatus(t *testing.T) {
 }
 
 func TestSync(t *testing.T) {
-	result, err := SyncFile("two")
-	fmt.Println(result)
+	TestQueue.StandbyAll()
+	err := testFileCreate()
 	if err != nil {
 		t.Error(err)
 	}
-	result, err = RemoveFileAndSync("two")
-	fmt.Println(result)
+	err = testRemoveFile()
 	if err != nil {
 		t.Error(err)
 	}
+}
+
+func testFileCreate() error {
+	fmt.Println("creating test file")
+	errChan := make(chan error, 1)
+	fmt.Println("starting to create a file")
+	SyncFile(errChan, "two")
+	err := <-errChan
+	close(errChan)
+	if err != nil {
+		return err
+	}
+	TestQueue.WaitForAll()
+	return nil
+}
+
+func testRemoveFile() error {
+	fmt.Println("removing a file")
+	errChan := make(chan error, 1)
+	RemoveFileAndSync(errChan, "two")
+	err := <-errChan
+	close(errChan)
+	if err != nil {
+		return err
+	}
+	TestQueue.WaitForAll()
+	return nil
 }

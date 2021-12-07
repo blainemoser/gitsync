@@ -9,6 +9,7 @@
 *.test
 test.json
 configs.json
+log.log
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out

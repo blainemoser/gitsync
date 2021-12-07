@@ -4,15 +4,18 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/blainemoser/gitsync/utils"
+	"github.com/fsnotify/fsnotify"
 )
 
 type Git struct {
-	repo string
-	cwd  string
+	repo    string
+	cwd     string
+	watcher *fsnotify.Watcher
 }
 
 // NewGit creates a new instance of Git
@@ -20,10 +23,78 @@ func NewGit() *Git {
 	return &Git{}
 }
 
+func (g *Git) SetWatcher() error {
+	err := g.newWatcher()
+	if err != nil {
+		return err
+	}
+	errs := make([]error, 0)
+	if err := filepath.WalkDir(g.GetRepo(), g.watchDir); err != nil {
+		errs = append(errs, err)
+	}
+	if len(errs) > 0 {
+		return utils.ParseErrors(errs)
+	}
+	return nil
+}
+
+// Watcher returns the watcher instance
+func (g *Git) Watcher() *fsnotify.Watcher {
+	return g.watcher
+}
+
+func (g *Git) HandleEvent(errChan chan error, resultChan chan string, event fsnotify.Event) {
+	if strings.Contains(event.Name, ".git") {
+		resultChan <- ""
+		errChan <- nil
+		return
+	}
+	errs := make([]error, 0)
+	result, err := g.Sync()
+	if err != nil {
+		errs = append(errs, err)
+	}
+	err = g.SetWatcher()
+	if err != nil {
+		errs = append(errs, err)
+	}
+	resultChan <- result
+	errChan <- utils.ParseErrors(errs)
+}
+
+func (g *Git) newWatcher() error {
+	if g.watcher != nil {
+		g.watcher.Close()
+	}
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return err
+	}
+
+	g.watcher = watcher
+	return nil
+}
+
+// watchDir gets run as a walk func, searching for directories to add watchers to
+func (g *Git) watchDir(path string, di os.DirEntry, err error) error {
+	if strings.Contains(path, ".git") {
+		return nil
+	}
+	if di.IsDir() {
+		return g.watcher.Add(path)
+	}
+
+	return nil
+}
+
 // SetRepo sets this instance's repo
 func (g *Git) SetRepo(repo string) (*Git, error) {
 	g.repo = repo
 	err := g.checkRepo()
+	if err != nil {
+		return g, err
+	}
+	err = g.SetWatcher()
 	return g, err
 }
 
@@ -32,13 +103,13 @@ func (g *Git) Status() (string, error) {
 	return g.action([]string{"status"})
 }
 
-func (g *Git) HasChanges() (bool, error) {
+func (g *Git) HasChanges() (bool, error, string) {
 	status, err := g.Status()
 	if err != nil {
-		return false, err
+		return false, err, status
 	}
 	return strings.Contains(status, "Changes not staged for commit") ||
-		strings.Contains(status, "Untracked files"), nil
+		strings.Contains(status, "Untracked files"), nil, status
 }
 
 // Sync syncs the current repo by running stage, commit, pull then finally push
@@ -87,6 +158,8 @@ func (g *Git) action(args []string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	ou, _ := exec.Command("dir").CombinedOutput()
+	fmt.Println(string(ou))
 	defer g.back()
 	result, err := exec.Command("git", args...).CombinedOutput()
 	return string(result), err

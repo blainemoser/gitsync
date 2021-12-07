@@ -2,7 +2,6 @@ package gitsync
 
 import (
 	"os"
-	"strings"
 
 	"github.com/blainemoser/gitsync/configs"
 	"github.com/blainemoser/gitsync/queue"
@@ -42,50 +41,7 @@ func TearDownTest() {
 }
 
 // SyncFile syncs a file to the repo
-func SyncFile(name string) (string, error) {
-	err := makeFile(name)
-	if err != nil {
-		return "", err
-	}
-	return syncAll()
-}
-
-func syncAll() (string, error) {
-	syncs := make([]string, 0)
-	errs := make([]error, 0)
-	var message string
-	var err error
-	for _, process := range *TestQueue {
-		state := make(chan interface{}, 1)
-		process.Process(state)
-		<-state
-		close(state)
-		if message, err = process.GetState(); err != nil {
-			errs = append(errs, err)
-		} else {
-			syncs = append(syncs, message)
-		}
-	}
-	return strings.Join(syncs, "\n"), utils.ParseErrors(errs)
-}
-
-// RemoveFileAndSync removes the file then syncs the git repo
-func RemoveFileAndSync(name string) (string, error) {
-	errs := make([]error, 0)
-	var err error
-	for _, process := range *TestQueue {
-		err = os.Remove(process.Git().GetRepo() + "/" + name + ".txt")
-		if err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if len(errs) > 0 {
-		return "", utils.ParseErrors(errs)
-	}
-	return syncAll()
-}
-
-func makeFile(name string) error {
+func SyncFile(errChan chan error, name string) {
 	errs := make([]error, 0)
 	var file *os.File
 	var err error
@@ -102,8 +58,22 @@ func makeFile(name string) error {
 			errs = append(errs, err)
 		}
 	}
-	if len(errs) > 0 {
-		return utils.ParseErrors(errs)
+	errChan <- utils.ParseErrors(errs)
+}
+
+// RemoveFileAndSync removes the file then syncs the git repo
+func RemoveFileAndSync(errChan chan error, name string) {
+	errs := make([]error, 0)
+	var err error
+	for _, process := range *TestQueue {
+		err = os.Remove(process.Git().GetRepo() + "/" + name + ".txt")
+		if err != nil {
+			errs = append(errs, err)
+		}
 	}
-	return nil
+	if len(errs) > 0 {
+		errChan <- utils.ParseErrors(errs)
+		return
+	}
+	errChan <- nil
 }
