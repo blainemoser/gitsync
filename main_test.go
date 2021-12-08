@@ -1,4 +1,4 @@
-package gitsync
+package main
 
 import (
 	"fmt"
@@ -9,9 +9,9 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	InitialiseTest()
+	initialiseTest()
 	code := m.Run()
-	TearDownTest()
+	tearDownTest()
 	os.Exit(code)
 }
 
@@ -37,21 +37,28 @@ func TestStatus(t *testing.T) {
 
 func TestSync(t *testing.T) {
 	TestQueue.StandbyAll()
-	err := testFileCreate()
+	err := testFileCreate("two")
 	if err != nil {
 		t.Error(err)
 	}
-	err = testRemoveFile()
+	err = testFileUpdate()
+	if err != nil {
+		t.Error(err)
+	}
+	err = testRemoveFile("two")
+	if err != nil {
+		t.Error(err)
+	}
+	err = testRemoveFile("one")
 	if err != nil {
 		t.Error(err)
 	}
 }
 
-func testFileCreate() error {
+func testFileCreate(name string) error {
 	fmt.Println("creating test file")
 	errChan := make(chan error, 1)
-	fmt.Println("starting to create a file")
-	SyncFile(errChan, "two")
+	syncFile(errChan, name)
 	err := <-errChan
 	close(errChan)
 	if err != nil {
@@ -61,10 +68,28 @@ func testFileCreate() error {
 	return nil
 }
 
-func testRemoveFile() error {
+func testFileUpdate() error {
+	fmt.Println("creating test file")
+	err := testFileCreate("one")
+	if err != nil {
+		return err
+	}
+	errChan := make(chan error, 1)
+	fmt.Println("updating test file")
+	updateFileContent(errChan, "one")
+	err = <-errChan
+	close(errChan)
+	if err != nil {
+		return err
+	}
+	TestQueue.WaitForAll()
+	return nil
+}
+
+func testRemoveFile(name string) error {
 	fmt.Println("removing a file")
 	errChan := make(chan error, 1)
-	RemoveFileAndSync(errChan, "two")
+	removeFileAndSync(errChan, name)
 	err := <-errChan
 	close(errChan)
 	if err != nil {

@@ -19,13 +19,9 @@ func main() {
 
 func start() chan bool {
 	configs, err := configs.NewConfigs().SetDirectories("configs.json", "")
-	if err != nil {
-		log.Fatal(err)
-	}
+	fatal(err)
 	Queue, err = queue.NewQueue().Walk(configs)
-	if err != nil {
-		log.Fatal(err)
-	}
+	fatal(err)
 	Queue.StandbyAll()
 	return make(chan bool, 1)
 }
@@ -37,4 +33,11 @@ func pwd() {
 		return
 	}
 	logging.SetBaseDir(pwd)
+}
+
+func fatal(err error) {
+	if err != nil {
+		logging.StaticWrite(err.Error(), "ERROR")
+		log.Fatal(err)
+	}
 }

@@ -1,4 +1,4 @@
-package gitsync
+package main
 
 import (
 	"os"
@@ -13,8 +13,9 @@ var TestDir = "../../../testGitSync"
 var TestQueue *queue.Queue
 
 // InitialiseTest initializes the testing environment
-func InitialiseTest() {
-	configs, err := configs.NewConfigs().SetDirectories("../test.json", TestDir)
+func initialiseTest() {
+	pwd()
+	configs, err := configs.NewConfigs().SetDirectories("test.json", TestDir)
 	if err != nil {
 		panic(err)
 	}
@@ -24,7 +25,7 @@ func InitialiseTest() {
 	}
 }
 
-func TearDownTest() {
+func tearDownTest() {
 	if TestQueue == nil {
 		return
 	}
@@ -40,8 +41,7 @@ func TearDownTest() {
 	}
 }
 
-// SyncFile syncs a file to the repo
-func SyncFile(errChan chan error, name string) {
+func syncFile(errChan chan error, name string) {
 	errs := make([]error, 0)
 	var file *os.File
 	var err error
@@ -61,12 +61,35 @@ func SyncFile(errChan chan error, name string) {
 	errChan <- utils.ParseErrors(errs)
 }
 
-// RemoveFileAndSync removes the file then syncs the git repo
-func RemoveFileAndSync(errChan chan error, name string) {
+func removeFileAndSync(errChan chan error, name string) {
 	errs := make([]error, 0)
 	var err error
 	for _, process := range *TestQueue {
 		err = os.Remove(process.Git().GetRepo() + "/" + name + ".txt")
+		if err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if len(errs) > 0 {
+		errChan <- utils.ParseErrors(errs)
+		return
+	}
+	errChan <- nil
+}
+
+func updateFileContent(errChan chan error, name string) {
+	errs := make([]error, 0)
+	var file *os.File
+	var err error
+	var content []byte
+	for _, process := range *TestQueue {
+		file, err = os.OpenFile(process.Git().GetRepo()+"/"+name+".txt", os.O_APPEND|os.O_WRONLY, os.ModeAppend)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		content = []byte("\nUPDATE\nNew Write to File\n")
+		_, err = file.Write(content)
 		if err != nil {
 			errs = append(errs, err)
 		}
